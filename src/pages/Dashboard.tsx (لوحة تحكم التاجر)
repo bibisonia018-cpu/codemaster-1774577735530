@@ -1,0 +1,76 @@
+import React, { useState, useEffect } from 'react';
+import { auth, db } from '../firebase';
+import { doc, setDoc, getDoc, collection, addDoc, query, where, onSnapshot } from 'firebase/firestore';
+
+export default function Dashboard() {
+  const [vendorData, setVendorData] = useState<any>({ shopName: '', telegramBotToken: '', telegramChatId: '' });
+  const [newProduct, setNewProduct] = useState({ name: '', price: '', image: '' });
+  const [products, setProducts] = useState<any[]>([]);
+  const user = auth.currentUser;
+
+  useEffect(() => {
+    if (!user) return;
+    
+    getDoc(doc(db, 'vendors', user.uid)).then(s => s.exists() && setVendorData(s.data()));
+
+    const q = query(collection(db, 'products'), where('vendorId', '==', user.uid));
+    const unsub = onSnapshot(q, (snap) => {
+      setProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsub();
+  }, [user]);
+
+  const saveSettings = async () => {
+    if (!user) return;
+    await setDoc(doc(db, 'vendors', user.uid), vendorData, { merge: true });
+    alert('تم حفظ الإعدادات');
+  };
+
+  const addProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    await addDoc(collection(db, 'products'), { ...newProduct, vendorId: user.uid });
+    setNewProduct({ name: '', price: '', image: '' });
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <h1 className="text-2xl font-bold mb-6">لوحة التحكم</h1>
+      
+      <section className="bg-white p-6 rounded-xl shadow mb-8">
+        <h2 className="text-xl font-bold mb-4">إعدادات تليجرام</h2>
+        <div className="grid gap-4">
+          <input placeholder="اسم المتجر" value={vendorData.shopName} className="border p-2 rounded"
+            onChange={e => setVendorData({...vendorData, shopName: e.target.value})} />
+          <input placeholder="Telegram Bot Token" value={vendorData.telegramBotToken} className="border p-2 rounded"
+            onChange={e => setVendorData({...vendorData, telegramBotToken: e.target.value})} />
+          <input placeholder="Telegram Chat ID" value={vendorData.telegramChatId} className="border p-2 rounded"
+            onChange={e => setVendorData({...vendorData, telegramChatId: e.target.value})} />
+          <button onClick={saveSettings} className="bg-blue-600 text-white py-2 rounded">حفظ الإعدادات</button>
+        </div>
+      </section>
+
+      <section className="bg-white p-6 rounded-xl shadow">
+        <h2 className="text-xl font-bold mb-4">إضافة منتج جديد</h2>
+        <form onSubmit={addProduct} className="grid gap-4">
+          <input required placeholder="اسم المنتج" value={newProduct.name} className="border p-2 rounded"
+            onChange={e => setNewProduct({...newProduct, name: e.target.value})} />
+          <input required placeholder="السعر" value={newProduct.price} className="border p-2 rounded"
+            onChange={e => setNewProduct({...newProduct, price: e.target.value})} />
+          <input required placeholder="رابط صورة المنتج" value={newProduct.image} className="border p-2 rounded"
+            onChange={e => setNewProduct({...newProduct, image: e.target.value})} />
+          <button type="submit" className="bg-green-600 text-white py-2 rounded">إضافة المنتج</button>
+        </form>
+      </section>
+
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+        {products.map(p => (
+          <div key={p.id} className="p-4 border rounded flex justify-between items-center bg-white">
+            <span>{p.name} - {p.price} دج</span>
+            <img src={p.image} className="w-12 h-12 object-cover rounded" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
