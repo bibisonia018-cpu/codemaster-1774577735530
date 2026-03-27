@@ -1,0 +1,30 @@
+import React, { useEffect, useState } from 'react';
+import { db } from '../firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { Link } from 'react-router-dom';
+
+export default function Home() {
+  const [vendors, setVendors] = useState<any[]>([]);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'vendors'), (snap) => {
+      setVendors(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsub();
+  }, []);
+
+  return (
+    <div>
+      <h1 className="text-3xl font-bold mb-8">المتاجر المتوفرة</h1>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {vendors.map(vendor => (
+          <Link to={`/store/${vendor.id}`} key={vendor.id} 
+            className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition border border-gray-100">
+            <h2 className="text-xl font-bold text-blue-600">{vendor.shopName}</h2>
+            <p className="text-gray-500 mt-2">اضغط لزيارة المتجر وطلب المنتجات</p>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
